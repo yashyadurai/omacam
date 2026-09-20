@@ -52,6 +52,33 @@ omarchy restart shell
 
 You should now see a camera icon (`󰀀`) in the bar. Click it to open the live camera preview.
 
+## Uninstallation
+
+Disable the plugin:
+
+```bash
+omarchy plugin disable omacam.plugin
+```
+
+Remove the plugin from your Omarchy plugins directory:
+
+```bash
+rm -rf ~/.config/omarchy/plugins/omacam.plugin
+```
+
+Restart the Omarchy shell:
+
+```bash
+omarchy restart shell
+```
+
+If you also want to remove snapshots created by OmaCam:
+
+```bash
+rm -rf ~/Pictures/Camera
+```
+> **Note:** The last command only removes photos created in `~/Pictures/Camera`. Skip it if you want to keep your snapshots.
+
 ## Usage
 
 * **Click the camera icon** to toggle the preview panel.
