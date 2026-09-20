@@ -25,11 +25,10 @@ A bar-widget plugin for **Omarchy** that adds a laptop/Webcam camera preview to 
 
 ## Installation
 
-Clone the repository into your Omarchy plugins directory:
+Use the omarchy plugin add command to install it
 
 ```sh
-git clone https://github.com/yashyadurai/omacam.git \
-  ~/.config/omarchy/plugins/omacam.plugin
+omarchy plugin add https://github.com/yashyadurai/omacam --enable
 ```
 
 Validate the plugin:
@@ -64,6 +63,10 @@ Remove the plugin from your Omarchy plugins directory:
 
 ```bash
 rm -rf ~/.config/omarchy/plugins/omacam.plugin
+```
+or
+```bash
+omarchy plugin remove omacam.plugin
 ```
 
 Restart the Omarchy shell:
