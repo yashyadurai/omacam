@@ -1,4 +1,4 @@
-# yashyadurai.camera
+# omacam
 
 A bar-widget plugin for **Omarchy** that adds a laptop/Webcam camera preview to
 your top bar. Click the camera icon to open a popup with a **live preview**,
@@ -37,15 +37,15 @@ Built on QtMultimedia (Qt 6.9+) via the in-process Quickshell shell.
 1. Clone/copy this directory into your plugins folder:
 
    ```sh
-   git clone https://github.com/YOUR_USER/yashyadurai.camera.git \
-     ~/.config/omarchy/plugins/yashyadurai.camera
+   git clone https://github.com/yashyaduari/omacam.git \
+     ~/.config/omarchy/plugins/omacam
    ```
 
 2. Register and enable it (adds it to the bar's `right` section):
 
    ```sh
-   omarchy plugin validate ~/.config/omarchy/plugins/yashyadurai.camera
-   omarchy plugin enable yashyadurai.camera right
+   omarchy plugin validate ~/.config/omarchy/plugins/omacam
+   omarchy plugin enable omacam right
    ```
 
 3. Restart the shell:
@@ -87,7 +87,7 @@ Persist per-plugin settings in
 
 ```jsonc
 {
-  "id": "yashyadurai.camera",
+  "id": "omacam",
   "mirror": false          // start with mirror OFF (default: true)
 }
 ```
@@ -115,7 +115,7 @@ omarchy-shell shell rescanPlugins
 Validate the plugin at any time:
 
 ```sh
-omarchy plugin validate ~/.config/omarchy/plugins/yashyadurai.camera
+omarchy plugin validate ~/.config/omarchy/plugins/omacam
 ```
 
 ## Compatibility / notes
