@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "id": "omacam.plugin",
+  "id": "omacam",
   "name": "Camera",
   "version": "1.0.0",
   "author": "yashyadurai",
