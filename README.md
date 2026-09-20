@@ -1,6 +1,6 @@
 # OmaCam
 
-<img src="/src/preview.png">
+<img src="/preview.png">
 A bar-widget plugin for **Omarchy** that adds a laptop/Webcam camera preview to your top bar. Click the camera icon to open a popup with a **live preview**, a **mirror toggle**, and one-click **snapshots** to `~/Pictures/Camera`. Built on QtMultimedia (Qt 6.9+) via the in-process Quickshell shell.
 <br><hr>
 
