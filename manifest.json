@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "id": "camera.plugin.omarchy.yash",
+  "name": "Camera",
+  "version": "1.0.0",
+  "author": "yashyadurai",
+  "license": "MIT",
+  "description": "Live laptop camera preview with mirror and snapshot controls.",
+  "kinds": ["bar-widget"],
+  "activation": "on-demand",
+  "entryPoints": {
+    "barWidget": "Widget.qml"
+  },
+  "barWidget": {
+    "displayName": "Camera",
+    "description": "Live webcam preview with mirror and snapshot",
+    "category": "System",
+    "allowMultiple": false,
+    "defaultSection": "right"
+  }
+}
