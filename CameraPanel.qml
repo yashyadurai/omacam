@@ -14,19 +14,21 @@ Panel {
   property var anchorItem: null
   property var hostWidget: null
   property bool mirror: setting("mirror", true)
+  property bool recordAudio: false
   property string noticeText: ""
   property bool noticeIsError: false
   readonly property string snapshotDir: Quickshell.env("HOME") + "/Pictures/Camera"
+  readonly property string videoDir: Quickshell.env("HOME") + "/Videos/Camera"
 
-  // Camera state is mirrored here from inside the on-demand capture
-  // component so the panel chrome can render without keeping a Camera
-  // object (and therefore the V4L2 device) alive while closed.
+  // Camera state mirrored from the on-demand capture component
   property string deviceLabel: ""
   property bool cameraLoaded: false
   property int errorCode: 0
   property string errorLabel: ""
   property bool captureReady: false
   property bool frameReady: false
+  property bool recording: false
+  property int recordMs: 0
 
   readonly property bool cameraReady: root.deviceLabel !== ""
     && root.errorCode === Camera.NoError
@@ -36,29 +38,23 @@ Panel {
     : (root.cameraLoaded ? "No camera detected" : "Camera")
   readonly property string statusText: root.noticeText !== ""
     ? root.noticeText
-    : (root.cameraFailed
-        ? (root.errorLabel || "Camera unavailable")
-        : root.deviceName)
-  readonly property string barTooltip: root.deviceLabel !== ""
-    ? "Camera · " + root.deviceLabel
-    : "Camera"
+    : (root.recording
+        ? "● Recording " + root.formatDuration(root.recordMs)
+        : (root.cameraFailed
+            ? (root.errorLabel || "Camera unavailable")
+            : root.deviceName))
+  readonly property string barTooltip: root.recording
+    ? "Camera · ● Recording " + root.formatDuration(root.recordMs)
+    : (root.deviceLabel !== "" ? "Camera · " + root.deviceLabel : "Camera")
 
   function setNotice(text, isError) {
     noticeText = text
     noticeIsError = isError === true
   }
 
-  function open(payload) {
-    root.controller.show()
-  }
-
-  function close() {
-    root.controller.hide()
-  }
-
-  function toggle() {
-    root.opened ? root.close() : root.open({})
-  }
+  function open(payload) { root.controller.show() }
+  function close() { root.controller.hide() }
+  function toggle() { root.opened ? root.close() : root.open({}) }
 
   function resetCameraState() {
     root.deviceLabel = ""
@@ -67,13 +63,21 @@ Panel {
     root.errorLabel = ""
     root.captureReady = false
     root.frameReady = false
+    root.recording = false
+    root.recordMs = 0
   }
+
+  function two(n) { return (n < 10 ? "0" : "") + n }
 
   function timestamp() {
     var d = new Date()
-    function two(n) { return (n < 10 ? "0" : "") + n }
     return String(d.getFullYear()) + two(d.getMonth() + 1) + two(d.getDate())
       + "-" + two(d.getHours()) + two(d.getMinutes()) + two(d.getSeconds())
+  }
+
+  function formatDuration(ms) {
+    var s = Math.floor(ms / 1000)
+    return two(Math.floor(s / 60)) + ":" + two(s % 60)
   }
 
   function takeSnapshot() {
@@ -85,19 +89,35 @@ Panel {
       root.setNotice("Camera is still starting…", false)
       return
     }
+    root.setNotice("", false)
     preview.item.captureToFile(root.snapshotDir
       + "/camera-" + root.timestamp() + ".jpg")
   }
 
+  function toggleRecording() {
+    if (!preview.item) return
+    if (root.recording) {
+      preview.item.stopRecording()
+      return
+    }
+    if (!root.cameraReady || !root.frameReady) {
+      root.setNotice("Camera is still starting…", false)
+      return
+    }
+    root.setNotice("", false)
+    preview.item.startRecording(root.videoDir
+      + "/camera-" + root.timestamp() + ".mp4")
+  }
+
   Process {
     id: ensureDir
-    command: ["mkdir", "-p", root.snapshotDir]
+    command: ["mkdir", "-p", root.snapshotDir, root.videoDir]
   }
 
   onOpenedChanged: {
     if (root.opened) {
       root.setNotice("", false)
-      root.resetCameraState()
+      // NOTE: no resetCameraState() here, the Loader handles it when it deactivates
       if (!ensureDir.running) ensureDir.running = true
     }
   }
@@ -159,10 +179,33 @@ Panel {
         Loader {
           id: preview
           anchors.fill: parent
-          active: root.opened
+          // stay alive while recording, even if the panel is closed
+          active: root.opened || root.recording
           sourceComponent: captureComponent
 
           onActiveChanged: if (!active) root.resetCameraState()
+        }
+
+        // recording indicator
+        Rectangle {
+          visible: root.recording
+          anchors.top: parent.top
+          anchors.left: parent.left
+          anchors.margins: Style.spacing.sm
+          width: recLabel.implicitWidth + Style.spacing.md * 2
+          height: recLabel.implicitHeight + Style.spacing.xs * 2
+          radius: height / 2
+          color: Qt.rgba(0, 0, 0, 0.6)
+
+          Text {
+            id: recLabel
+            anchors.centerIn: parent
+            text: "● REC " + root.formatDuration(root.recordMs)
+            color: "#ff4d4d"
+            font.family: Style.font.family
+            font.pixelSize: Style.font.caption
+            font.bold: true
+          }
         }
 
         Text {
@@ -194,7 +237,24 @@ Panel {
         Button {
           text: "Snapshot"
           focusable: true
+          enabled: root.cameraReady && root.captureReady
           onClicked: root.takeSnapshot()
+        }
+
+        Button {
+          text: root.recording ? "Stop" : "Record"
+          selected: root.recording
+          focusable: true
+          enabled: root.recording || (root.cameraReady && root.frameReady)
+          onClicked: root.toggleRecording()
+        }
+
+        Button {
+          text: root.recordAudio ? "Mic: on" : "Mic: off"
+          selected: root.recordAudio
+          focusable: true
+          enabled: !root.recording
+          onClicked: root.recordAudio = !root.recordAudio
         }
       }
 
@@ -218,7 +278,16 @@ Panel {
       id: captureRoot
 
       function captureToFile(path) {
-        return imageCapture.captureToFile(path)
+        imageCapture.captureToFile(path)
+      }
+
+      function startRecording(path) {
+        recorder.outputLocation = "file://" + path
+        recorder.record()
+      }
+
+      function stopRecording() {
+        recorder.stop()
       }
 
       Camera {
@@ -245,7 +314,12 @@ Panel {
         id: videoOutput
         anchors.fill: parent
         fillMode: VideoOutput.PreserveAspectCrop
-        mirrored: root.mirror
+
+        // Qt 6 VideoOutput has no `mirrored`; flip with a transform
+        transform: Scale {
+          origin.x: videoOutput.width / 2
+          xScale: root.mirror ? -1 : 1
+        }
 
         onContentRectChanged: root.frameReady =
           contentRect.width > 0 && contentRect.height > 0
@@ -263,11 +337,43 @@ Panel {
         }
       }
 
+      MediaRecorder {
+        id: recorder
+        quality: MediaRecorder.HighQuality
+        mediaFormat {
+          fileFormat: MediaFormat.MPEG4
+        }
+
+        onRecorderStateChanged: {
+          root.recording = recorderState === MediaRecorder.RecordingState
+          if (recorderState === MediaRecorder.StoppedState && recorder.actualLocation.toString() !== "")
+            root.setNotice("Saved " + recorder.actualLocation.toString().replace("file://", ""), false)
+        }
+        onDurationChanged: root.recordMs = duration
+        onErrorOccurred: function(error, errorString) {
+          root.recording = false
+          root.setNotice("Recording failed: " + errorString, true)
+        }
+      }
+
+      AudioInput {
+        id: micInput
+        muted: !root.recordAudio
+      }
+
       CaptureSession {
         id: capture
         camera: camera
         videoOutput: videoOutput
         imageCapture: imageCapture
+        recorder: recorder
+        audioInput: root.recordAudio ? micInput : null
+      }
+
+      Component.onCompleted: {
+        root.captureReady = imageCapture.readyForCapture
+        root.frameReady = videoOutput.contentRect.width > 0
+          && videoOutput.contentRect.height > 0
       }
     }
   }
