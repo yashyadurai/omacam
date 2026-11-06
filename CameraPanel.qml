@@ -15,6 +15,10 @@ Panel {
   property var hostWidget: null
   property bool mirror: setting("mirror", true)
   property bool recordAudio: false
+  property int timerSeconds: Number(setting("timer", 0))
+  property int countdownMs: 0
+  readonly property bool countdownActive: root.countdownMs > 0
+  readonly property int countdownSeconds: Math.ceil(root.countdownMs / 1000)
   property string noticeText: ""
   property bool noticeIsError: false
   readonly property string snapshotDir: Quickshell.env("HOME") + "/Pictures/Camera"
@@ -36,13 +40,15 @@ Panel {
   readonly property string deviceName: root.deviceLabel !== ""
     ? root.deviceLabel
     : (root.cameraLoaded ? "No camera detected" : "Camera")
-  readonly property string statusText: root.noticeText !== ""
-    ? root.noticeText
-    : (root.recording
-        ? "● Recording " + root.formatDuration(root.recordMs)
-        : (root.cameraFailed
-            ? (root.errorLabel || "Camera unavailable")
-            : root.deviceName))
+  readonly property string statusText: root.countdownActive
+    ? "Taking photo in " + root.countdownSeconds + "s…"
+    : (root.noticeText !== ""
+        ? root.noticeText
+        : (root.recording
+            ? "● Recording " + root.formatDuration(root.recordMs)
+            : (root.cameraFailed
+                ? (root.errorLabel || "Camera unavailable")
+                : root.deviceName)))
   readonly property string barTooltip: root.recording
     ? "Camera · ● Recording " + root.formatDuration(root.recordMs)
     : (root.deviceLabel !== "" ? "Camera · " + root.deviceLabel : "Camera")
@@ -50,6 +56,15 @@ Panel {
   function setNotice(text, isError) {
     noticeText = text
     noticeIsError = isError === true
+  }
+
+  function persistSetting(key, value) {
+    var entry = { id: root.moduleName }
+    for (var k in root.settings) if (k !== "id") entry[k] = root.settings[k]
+    entry[key] = value
+    root.settings = entry
+    if (root.bar && root.bar.shell && typeof root.bar.shell.updateEntryInline === "function")
+      root.bar.shell.updateEntryInline(root.moduleName, entry)
   }
 
   function open(payload) { root.controller.show() }
@@ -65,6 +80,48 @@ Panel {
     root.frameReady = false
     root.recording = false
     root.recordMs = 0
+    root.cancelCountdown()
+  }
+
+  function cancelCountdown() {
+    selfTimer.stop()
+    root.countdownMs = 0
+  }
+
+  function startSnapshotTimer() {
+    if (root.countdownActive) {
+      root.cancelCountdown()
+      root.setNotice("Timer cancelled", false)
+      return
+    }
+    if (!root.cameraReady) {
+      root.setNotice("No camera is available", true)
+      return
+    }
+    if (!root.captureReady || !preview.item) {
+      root.setNotice("Camera is still starting…", false)
+      return
+    }
+    if (root.timerSeconds <= 0) {
+      root.takeSnapshot()
+      return
+    }
+    root.setNotice("", false)
+    root.countdownMs = root.timerSeconds * 1000
+    selfTimer.restart()
+  }
+
+  Timer {
+    id: selfTimer
+    interval: 1000
+    repeat: true
+    onTriggered: {
+      root.countdownMs = Math.max(0, root.countdownMs - 1000)
+      if (root.countdownMs === 0) {
+        selfTimer.stop()
+        root.takeSnapshot()
+      }
+    }
   }
 
   function two(n) { return (n < 10 ? "0" : "") + n }
@@ -119,6 +176,8 @@ Panel {
       root.setNotice("", false)
       // NOTE: no resetCameraState() here, the Loader handles it when it deactivates
       if (!ensureDir.running) ensureDir.running = true
+    } else {
+      root.cancelCountdown()
     }
   }
 
@@ -208,6 +267,36 @@ Panel {
           }
         }
 
+        // self-timer countdown overlay
+        Rectangle {
+          visible: root.countdownActive
+          anchors.fill: parent
+          color: Qt.rgba(0, 0, 0, 0.35)
+          z: 2
+
+          Column {
+            anchors.centerIn: parent
+            spacing: Style.spacing.xs
+
+            Text {
+              anchors.horizontalCenter: parent.horizontalCenter
+              text: root.countdownSeconds
+              color: "#ffffff"
+              font.family: Style.font.family
+              font.pixelSize: Math.round(previewFrame.height * 0.42)
+              font.bold: true
+            }
+
+            Text {
+              anchors.horizontalCenter: parent.horizontalCenter
+              text: "Get ready…"
+              color: Qt.rgba(1, 1, 1, 0.8)
+              font.family: Style.font.family
+              font.pixelSize: Style.font.caption
+            }
+          }
+        }
+
         Text {
           anchors.centerIn: parent
           width: parent.width - Style.spacing.lg * 2
@@ -235,10 +324,11 @@ Panel {
         }
 
         Button {
-          text: "Snapshot"
+          text: root.countdownActive ? "Cancel" : "Snapshot"
+          selected: root.countdownActive
           focusable: true
-          enabled: root.cameraReady && root.captureReady
-          onClicked: root.takeSnapshot()
+          enabled: root.countdownActive || (root.cameraReady && root.captureReady)
+          onClicked: root.startSnapshotTimer()
         }
 
         Button {
@@ -255,6 +345,34 @@ Panel {
           focusable: true
           enabled: !root.recording
           onClicked: root.recordAudio = !root.recordAudio
+        }
+      }
+
+      Row {
+        width: parent.width
+        spacing: Style.spacing.sm
+
+        Text {
+          anchors.verticalCenter: parent.verticalCenter
+          text: "Self-timer"
+          color: Qt.rgba(Color.popups.text.r, Color.popups.text.g, Color.popups.text.b, 0.62)
+          font.family: Style.font.family
+          font.pixelSize: Style.font.caption
+        }
+
+        Repeater {
+          model: [0, 3, 5, 10]
+
+          Button {
+            text: modelData === 0 ? "Off" : modelData + "s"
+            selected: root.timerSeconds === modelData
+            focusable: true
+            enabled: !root.countdownActive
+            onClicked: {
+              root.timerSeconds = modelData
+              root.persistSetting("timer", modelData)
+            }
+          }
         }
       }
 

@@ -9,6 +9,7 @@ A bar-widget plugin for **Omarchy** that adds a laptop/Webcam camera preview to 
 * Live camera preview in a bar-anchored popup panel (16:9).
 * **Mirror** toggle (on by default, so the preview reads like a phone front-camera). Can be defaulted off in config.
 * **Snapshot** to `~/Pictures/Camera/camera-YYYYMMDD-HHMMSS.jpg`.
+* **Self-timer** with Off / 3s / 5s / 10s presets, so you can strike a pose before the photo is taken. A countdown is shown over the preview, and the Snapshot button switches to **Cancel** while it runs.
 * Human-readable status: shows the connected device name, and a clear **"No camera detected"** / error banner if the hardware is missing or busy.
 * Device is only held while the panel is open — the V4L2 node (`/dev/videoN`) is released when the panel closes, so the camera LED and file descriptor aren't grabbed at idle.
 * Keyboard-friendly: `Esc` closes the panel.
@@ -86,6 +87,7 @@ rm -rf ~/Pictures/Camera
 
 * **Click the camera icon** to toggle the preview panel.
 * **Snapshot** saves a JPEG to `~/Pictures/Camera/`.
+* **Self-timer** pick a preset (3s/5s/10s), then press **Snapshot**; the countdown is shown over the preview. Press **Cancel** (the Snapshot button while counting down) or close the panel to stop it.
 * **Mirror** flips the preview horizontally.
 
 ### IPC
@@ -117,16 +119,17 @@ Example:
 ```jsonc
 {
   "id": "omacam.plugin",
-  "mirror": false
+  "mirror": false,
+  "timer": 3
 }
 ```
 
-`mirror` can also be changed directly from the panel. The setting is persisted by Quickshell.
+`mirror` can also be changed directly from the panel. `timer` is the default self-timer delay in seconds (`0` disables it; the panel offers Off / 3s / 5s / 10s), and selecting a preset in the panel saves it back to `shell.json`.
 
 ## Files
 
 ```text
-CameraPanel.qml  — the popup panel: preview, mirror, snapshot, status
+CameraPanel.qml  — the popup panel: preview, mirror, snapshot, self-timer, status
 Widget.qml       — the bar icon button that opens/closes the panel
 manifest.json    — plugin manifest and bar-widget entry point
 ```

@@ -2,10 +2,10 @@
   "schemaVersion": 1,
   "id": "omacam.plugin",
   "name": "Camera",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": "yashyadurai",
   "license": "MIT",
-  "description": "Live laptop camera preview with mirror and snapshot controls.",
+  "description": "Live laptop camera preview with mirror, self-timer, and snapshot controls.",
   "kinds": ["bar-widget"],
   "activation": "on-demand",
   "entryPoints": {
